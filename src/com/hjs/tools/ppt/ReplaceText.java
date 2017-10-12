@@ -1,5 +1,6 @@
 package com.hjs.tools.ppt;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -18,24 +19,43 @@ import org.apache.poi.xslf.usermodel.XSLFTextShape;
 
 /**
  * 遍历PPT中每个页面文本，找到广告词语进行去除
+ * 如替换:   亮亮图文旗舰店  https://liangliangtuwen.tmall.com
  * @author Administrator
  *
  */
 
 public class ReplaceText {
-	//替换:   亮亮图文旗舰店  https://liangliangtuwen.tmall.com
+	
+	final static String DIRECTORY_PATH = "E://PPT/";
+	final static String FILTER_FILE_NAME = "亮亮图文";
 	
 	public static void main(String[] args) {
-		String path = "E:\\PPT模板2.pptx";
-		replace(path);
+		File file = new File(DIRECTORY_PATH);
+		ergodic(file);
 	}
 	
-	public static void replace(String path) {
+	private static void ergodic(File parentFile) {
+		if(parentFile.isDirectory()) {
+			File[] files = parentFile.listFiles();
+			for(File file :files) {
+				ergodic(file);
+			}
+		} else {
+			String newPath = renameName(parentFile.getAbsolutePath());
+			replaceText(newPath);
+			System.out.println("finish replace:" + parentFile + " to new :" + newPath);
+		}
+	}
+	
+	public static void replaceText(String path) {
 		try { 
 			XMLSlideShow ppt = new XMLSlideShow(new FileInputStream(path));
 
 			Pattern pName = Pattern.compile("(亮亮图文旗舰店)");
 			Matcher mName = null;
+			
+			Pattern pName2 = Pattern.compile("(亮亮图文)");
+			Matcher mName2 = null;
 			
 			Pattern pUrl = Pattern.compile("(https://liangliangtuwen.tmall.com)");
 			Matcher mUrl = null;
@@ -47,7 +67,7 @@ public class ReplaceText {
 
 					if (shape instanceof XSLFTextShape) {
 						XSLFTextShape txtshape = (XSLFTextShape) shape;
-						System.out.println("XSLFTextShape" + ":" + shape.getShapeName() + ":" + txtshape.getText());
+//						System.out.println("XSLFTextShape" + ":" + shape.getShapeName() + ":" + txtshape.getText());
 						//
 						if (txtshape.getShapeName().equals("Text Box 14")) {
 							txtshape.setText("");
@@ -55,6 +75,9 @@ public class ReplaceText {
 
 						mName = pName.matcher(txtshape.getText());
 						txtshape.setText( mName.replaceAll("") ) ;
+						
+						mName2 = pName2.matcher(txtshape.getText());
+						txtshape.setText( mName2.replaceAll("") ) ;
 						
 						mUrl = pUrl.matcher(txtshape.getText());
 						txtshape.setText( mUrl.replaceAll("") ) ;
@@ -74,11 +97,11 @@ public class ReplaceText {
 							}
 						}
 					} else if (shape instanceof XSLFConnectorShape) {
-						XSLFConnectorShape connectorShape = (XSLFConnectorShape) shape;
-						System.out.println("XSLFConnectorShape" + ":" + shape.getShapeName());
+//						XSLFConnectorShape connectorShape = (XSLFConnectorShape) shape;
+//						System.out.println("XSLFConnectorShape" + ":" + shape.getShapeName());
 					} else if (shape instanceof XSLFPictureShape) {
-						XSLFPictureShape picShape = (XSLFPictureShape) shape;
-						System.out.println("XSLFPictureShape" + ":" + shape.getShapeName());
+//						XSLFPictureShape picShape = (XSLFPictureShape) shape;
+//						System.out.println("XSLFPictureShape" + ":" + shape.getShapeName());
 					}
 				}
 			}
@@ -92,6 +115,24 @@ public class ReplaceText {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}
+	}
+
+	public static String renameName(String path) {
+		File file = new File(path);
+		if(!file.exists()) return "";
+		String fileName = file.getName();
+		if(fileName.contains(FILTER_FILE_NAME)) {
+			System.out.println("rename " + path);
+			String newPath = path.replace(FILTER_FILE_NAME, "").replaceAll("-", "");
+			File newFile = new File(newPath);
+			if(file.renameTo(newFile)){
+				return newPath;
+			} else {
+				return "";
+			}
+		} else {
+			return path;
 		}
 	}
 }

@@ -5,23 +5,16 @@ import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.RenderingHints;
-import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.PushbackInputStream;
 import java.util.List;
 
-import org.apache.poi.POIXMLDocument;
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
-import org.apache.poi.sl.usermodel.Slide;
-import org.apache.poi.sl.usermodel.SlideShow;
-import org.apache.poi.sl.usermodel.TextRun;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTRegularTextRun;
@@ -40,11 +33,40 @@ import org.openxmlformats.schemas.presentationml.x2006.main.CTSlide;
 public class PPT2Image {
 	/**
 	 * 以下类方法中实现了将 2007和 2003的字体都转为宋体，防止中文出现乱码问题，源代码如下：
-		类中的方法未判断 ppt的内容为空的时候，这个需要添加判断，只截取了第一个slide的图片
+		类中的方法未判断 ppt的内容为空的时候，这个需要添加判断，
 	 */
     private static Integer imgWidth=728;//默认宽度
     private static Integer imgHeight=409;//默认高度
-    private static Integer padding = 20;
+    private static Integer padding = 20;//左右两边还有顶部底部间距
+    private static Integer PIC_NUMBER = 2;//除了第一张图是全图，下面每行并列图片数
+    private static Integer W_PADDING = 0;//图片直接间距
+    
+    public static void main(String[] args) {
+        try {
+            createPPTImage(new  FileInputStream(new File("E:\\PPT\\PPT模板.pptx")));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public static void createPPTImage(InputStream in){
+//      try {
+          if(!in.markSupported()){
+              in=new BufferedInputStream(in);
+          }
+          if(in.markSupported()){
+              in=new PushbackInputStream(in,8);
+          }
+//          if(POIFSFileSystem.hasPOIFSHeader(in)){//2003
+//              create2003PPTImage(in);
+//          }else { //if(POIXMLDocument.hasOOXMLHeader(in)){//2007
+              create2007PPTImage(in);
+//          }
+//      } catch (IOException e) {
+//          e.printStackTrace();
+//      }
+    }
+    
     public static void create2007PPTImage(InputStream in){
         try {
             XMLSlideShow xmlSlideShow=new XMLSlideShow(in);
@@ -53,9 +75,9 @@ public class PPT2Image {
             Dimension dim = xmlSlideShow.getPageSize();
             imgWidth = dim.width;
             imgHeight = dim.height;
-            BufferedImage img=new BufferedImage(imgWidth + padding * 3,
-            		(int)(Math.ceil((slides.size() - 1) / 2.0f)) * (imgHeight / 2 + padding) //非第一张图片都是半尺寸
-            		+ imgHeight + padding, //第一张图片是全尺寸
+            BufferedImage img=new BufferedImage(imgWidth + padding * 2,
+            		(int)(Math.ceil((slides.size() - 1) / (float)PIC_NUMBER)) * (imgHeight / PIC_NUMBER) //非第一张图片都是1/4尺寸
+            		+ imgHeight + padding * 2, //第一张图片是全尺寸
             		BufferedImage.TYPE_INT_RGB);
             Graphics2D graphics=img.createGraphics();
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING,  
@@ -79,6 +101,7 @@ public class PPT2Image {
 	                CTTextBody tb = shape.getTxBody();
 	                if (null == tb)
 	                    continue;
+
 	                CTTextParagraph[] paras = tb.getPArray();
 	                CTTextFont font=CTTextFont.Factory.parse(
 	                        "<xml-fragment xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\">"+
@@ -96,25 +119,22 @@ public class PPT2Image {
 	            }
 	            
 	            System.out.println(i);
+	            int mod = i % PIC_NUMBER;
 	            if(i == 0) {
 	            	Image image = createSubImage(imgWidth,imgHeight,slide);
-//	            	graphics.fill(new Rectangle2D.Float(padding, padding, imgWidth, imgHeight));
 	            	graphics.drawImage(image,padding, padding, imgWidth, imgHeight, null);
 	            	System.out.println("left:" + padding + ",top:" + padding + ",right:" + imgWidth + ",bottom:" + imgHeight);
 	            	height += imgHeight + padding;
-	            } else if(i % 2 == 1) {//左边
+	            } else if(mod == 0){//最右
 	            	Image image = createSubImage(imgWidth,imgHeight,slide);
-//	            	graphics.fill(new Rectangle2D.Float(padding, height + padding , imgWidth / 2, imgHeight / 2));
-	            	graphics.drawImage(image,padding, height + padding , imgWidth / 2, imgHeight / 2, null);
-	            	System.out.println("left:" + padding + ",top:" + (height + padding) + ",right:" + imgWidth / 2  + ",bottom:" + imgHeight / 2);
-	            } else {//右边
+	            	graphics.drawImage(image,(PIC_NUMBER - 1) * imgWidth / PIC_NUMBER + W_PADDING * (PIC_NUMBER - 1) + padding, height + W_PADDING, imgWidth / PIC_NUMBER, imgHeight / PIC_NUMBER, null);
+	            	System.out.println("left:" + ((PIC_NUMBER - 1) * imgWidth / PIC_NUMBER + W_PADDING * (PIC_NUMBER - 1) + padding) + ",top:" + (height + W_PADDING) + ",right:" + imgWidth / PIC_NUMBER  + ",bottom:" + imgHeight / PIC_NUMBER);
+	            	height += imgHeight / PIC_NUMBER;
+	            } else if(mod < PIC_NUMBER) {//左
 	            	Image image = createSubImage(imgWidth,imgHeight,slide);
-//	            	graphics.fill(new Rectangle2D.Float(imgWidth / 2 + padding * 2, height + padding, imgWidth / 2, imgHeight / 2));
-	            	graphics.drawImage(image,imgWidth / 2 + padding * 2, height + padding, imgWidth / 2, imgHeight / 2, null);
-	            	System.out.println("left:" + (imgWidth / 2 + padding * 2) + ",top:" + (height + padding) + ",right:" + imgWidth / 2  + ",bottom:" + imgHeight / 2);
-	            	height += imgHeight / 2 + padding;
-	            }
-//	            slide.draw(graphics);
+	            	graphics.drawImage(image,(mod - 1) * imgWidth / PIC_NUMBER + W_PADDING * (mod - 1) + padding, height + W_PADDING , imgWidth / PIC_NUMBER, imgHeight / PIC_NUMBER, null);
+	            	System.out.println("left:" + ((mod - 1) * imgWidth / PIC_NUMBER + W_PADDING * (mod - 1) + padding) + ",top:" + (height + W_PADDING) + ",right:" + imgWidth / PIC_NUMBER  + ",bottom:" + imgHeight / PIC_NUMBER);
+	            } 
 	            
 	            i++;
 	            
@@ -176,28 +196,4 @@ public class PPT2Image {
     }
     
     
-    public static void createPPTImage(InputStream in){
-//        try {
-            if(!in.markSupported()){
-                in=new BufferedInputStream(in);
-            }
-            if(in.markSupported()){
-                in=new PushbackInputStream(in,8);
-            }
-//            if(POIFSFileSystem.hasPOIFSHeader(in)){//2003
-//                create2003PPTImage(in);
-//            }else { //if(POIXMLDocument.hasOOXMLHeader(in)){//2007
-                create2007PPTImage(in);
-//            }
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-    }
-    public static void main(String[] args) {
-        try {
-            createPPTImage(new  FileInputStream(new File("E:\\PPT模板.pptx")));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-    }
 }
